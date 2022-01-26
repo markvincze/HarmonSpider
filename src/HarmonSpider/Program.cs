@@ -23,7 +23,7 @@ namespace HarmonSpider
                 Console.WriteLine("Processing page {0}", page);
                 var response = await client.GetAsync($"https://www.harmontown.com/category/podcasts/page/{page}");
 
-                if(response.StatusCode == HttpStatusCode.NotFound)
+                if (response.StatusCode == HttpStatusCode.NotFound)
                 {
                     Console.WriteLine("All episodes have been downloaded.");
                 }
@@ -44,6 +44,7 @@ namespace HarmonSpider
 
                 foreach (var link in episodePageLinks)
                 {
+                    Console.WriteLine("Checking episode page {0}...", link);
                     var episodePageResponse = await client.GetAsync(link);
 
                     episodePageResponse.EnsureSuccessStatusCode();
@@ -56,24 +57,34 @@ namespace HarmonSpider
                         .FirstOrDefault(a => a.InnerText.StartsWith("Download") && a.Attributes["href"].Value.EndsWith("mp4"))
                         ?.Attributes["href"]?.Value;
 
-                    Console.WriteLine("Downloading {0}...", downloadLink);
-
-                    var fileResponse = await client.GetAsync(downloadLink, HttpCompletionOption.ResponseHeadersRead);
-
-                    fileResponse.EnsureSuccessStatusCode();
-
                     var fileName = downloadLink.Substring(downloadLink.LastIndexOf('/') + 1);
-                    using(var hs = await fileResponse.Content.ReadAsStreamAsync())
-                    using(var fs = new FileStream($"C:\\Temp\\Harmontown\\{fileName}", FileMode.Create))
-                    {
-                        await hs.CopyToAsync(fs);
-                    }
+                    var fileLocalPath = GetDownloadFilePath(fileName);
 
-                    Console.WriteLine("Download done!");
+                    if (File.Exists(fileLocalPath))
+                    {
+                        Console.WriteLine("File {0} already exists, skipping.", fileLocalPath);
+                    }
+                    else
+                    {
+                        Console.WriteLine("Downloading {0} to {1}...", downloadLink, fileLocalPath);
+                        var fileResponse = await client.GetAsync(downloadLink, HttpCompletionOption.ResponseHeadersRead);
+
+                        fileResponse.EnsureSuccessStatusCode();
+
+                        using (var hs = await fileResponse.Content.ReadAsStreamAsync())
+                        using (var fs = new FileStream(fileLocalPath, FileMode.Create))
+                        {
+                            await hs.CopyToAsync(fs);
+                        }
+
+                        Console.WriteLine("Download done!");
+                    }
                 }
 
                 page++;
             }
         }
+
+        private static string GetDownloadFilePath(string fileName) => $"D:\\Harmontown\\{fileName}";
     }
 }
